@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Suivi des dépenses</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <!-- Page de connexion -->
+    <div id="login-page" class="page">
+        <div class="container">
+            <h1>Suivi des dépenses</h1>
+            
+            <div class="tabs">
+                <button class="tab-btn active" onclick="showTab('login-form')">Connexion</button>
+                <button class="tab-btn" onclick="showTab('register-form')">Inscription</button>
+            </div>
+            
+            <div id="login-form" class="form-container">
+                <form id="login-form-elem">
+                    <div class="form-group">
+                        <label for="login-username">Nom d'utilisateur</label>
+                        <input type="text" id="login-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">Mot de passe</label>
+                        <input type="password" id="login-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Se connecter</button>
+                </form>
+                <p class="error-message" id="login-error"></p>
+            </div>
+            
+            <div id="register-form" class="form-container hidden">
+                <form id="register-form-elem">
+                    <div class="form-group">
+                        <label for="register-username">Nom d'utilisateur</label>
+                        <input type="text" id="register-username" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-password">Mot de passe</label>
+                        <input type="password" id="register-password" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="register-confirm-password">Confirmer le mot de passe</label>
+                        <input type="password" id="register-confirm-password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">S'inscrire</button>
+                </form>
+                <p class="error-message" id="register-error"></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Page du tableau de bord -->
+    <div id="dashboard-page" class="page hidden">
+        <header>
+            <div class="container">
+                <h1>Tableau de bord financier</h1>
+                <button id="logout-btn" class="btn btn-outline">Déconnexion</button>
+            </div>
+        </header>
+        
+        <main class="container">
+            <div class="dashboard-grid">
+                <!-- Section résumé -->
+                <section class="summary-section card">
+                    <h2>Résumé</h2>
+                    <div class="summary-content">
+                        <div class="summary-item">
+                            <h3>Revenus</h3>
+                            <p id="total-income" class="amount income">0,00 XOF</p>
+                        </div>
+                        <div class="summary-item">
+                            <h3>Dépenses</h3>
+                            <p id="total-expense" class="amount expense">0,00 XOF</p>
+                        </div>
+                        <div class="summary-item">
+                            <h3>Balance</h3>
+                            <p id="balance" class="amount">0,00 XOF</p>
+                        </div>
+                    </div>
+                </section>
+                
+                <!-- Section graphiques -->
+                <section class="charts-section card">
+                    <h2>Aperçu graphique</h2>
+                    <div class="chart-container">
+                        <canvas id="expense-chart"></canvas>
+                    </div>
+                </section>
+                
+                <!-- Section nouvelle transaction -->
+                <section class="new-transaction-section card">
+                    <h2>Nouvelle transaction</h2>
+                    <form id="transaction-form">
+                        <div class="form-group">
+                            <label for="transaction-amount">Montant</label>
+                            <input type="number" id="transaction-amount" step="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Type</label>
+                            <div class="radio-group">
+                                <label>
+                                    <input type="radio" name="transaction-type" value="income" checked> Revenu
+                                </label>
+                                <label>
+                                    <input type="radio" name="transaction-type" value="expense"> Dépense
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-category">Catégorie</label>
+                            <select id="transaction-category" required>
+                                <optgroup label="Revenus">
+                                    <option value="Salaire">Salaire</option>
+                                    <option value="Freelance">Freelance</option>
+                                    <option value="Cadeaux">Cadeaux</option>
+                                    <option value="Investissements">Investissements</option>
+                                    <option value="Autre revenu">Autre revenu</option>
+                                </optgroup>
+                                <optgroup label="Dépenses">
+                                    <option value="Alimentation">Alimentation</option>
+                                    <option value="Logement">Logement</option>
+                                    <option value="Transport">Transport</option>
+                                    <option value="Loisirs">Loisirs</option>
+                                    <option value="Santé">Santé</option>
+                                    <option value="Éducation">Éducation</option>
+                                    <option value="Vêtements">Vêtements</option>
+                                    <option value="Factures">Factures</option>
+                                    <option value="Autre dépense">Autre dépense</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-description">Description</label>
+                            <input type="text" id="transaction-description">
+                        </div>
+                        <div class="form-group">
+                            <label for="transaction-date">Date</label>
+                            <input type="date" id="transaction-date" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Ajouter</button>
+                    </form>
+                </section>
+                
+                <!-- Section transactions -->
+                <section class="transactions-section card">
+                    <h2>Transactions récentes</h2>
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label for="filter-category">Catégorie:</label>
+                            <select id="filter-category">
+                                <option value="">Toutes</option>
+                                <optgroup label="Revenus">
+                                    <option value="Salaire">Salaire</option>
+                                    <option value="Freelance">Freelance</option>
+                                    <option value="Cadeaux">Cadeaux</option>
+                                    <option value="Investissements">Investissements</option>
+                                    <option value="Autre revenu">Autre revenu</option>
+                                </optgroup>
+                                <optgroup label="Dépenses">
+                                    <option value="Alimentation">Alimentation</option>
+                                    <option value="Logement">Logement</option>
+                                    <option value="Transport">Transport</option>
+                                    <option value="Loisirs">Loisirs</option>
+                                    <option value="Santé">Santé</option>
+                                    <option value="Éducation">Éducation</option>
+                                    <option value="Vêtements">Vêtements</option>
+                                    <option value="Factures">Factures</option>
+                                    <option value="Autre dépense">Autre dépense</option>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-start-date">Du:</label>
+                            <input type="date" id="filter-start-date">
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-end-date">Au:</label>
+                            <input type="date" id="filter-end-date">
+                        </div>
+                        <button id="apply-filters" class="btn btn-small">Filtrer</button>
+                    </div>
+                    <div class="transactions-list" id="transactions-container">
+                        <!-- Les transactions seront ajoutées ici dynamiquement -->
+                        <p class="empty-message">Aucune transaction à afficher</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+        
+        <!-- Modal d'édition -->
+        <div id="edit-modal" class="modal">
+            <div class="modal-content">
+                <span class="close-btn">&times;</span>
+                <h2>Modifier la transaction</h2>
+                <form id="edit-form">
+                    <input type="hidden" id="edit-id">
+                    <div class="form-group">
+                        <label for="edit-amount">Montant</label>
+                        <input type="number" id="edit-amount" step="0.01" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="edit-type" value="income"> Revenu
+                            </label>
+                            <label>
+                                <input type="radio" name="edit-type" value="expense"> Dépense
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-category">Catégorie</label>
+                        <select id="edit-category" required>
+                            <optgroup label="Revenus">
+                                <option value="Salaire">Salaire</option>
+                                <option value="Freelance">Freelance</option>
+                                <option value="Cadeaux">Cadeaux</option>
+                                <option value="Investissements">Investissements</option>
+                                <option value="Autre revenu">Autre revenu</option>
+                            </optgroup>
+                            <optgroup label="Dépenses">
+                                <option value="Alimentation">Alimentation</option>
+                                <option value="Logement">Logement</option>
+                                <option value="Transport">Transport</option>
+                                <option value="Loisirs">Loisirs</option>
+                                <option value="Santé">Santé</option>
+                                <option value="Éducation">Éducation</option>
+                                <option value="Vêtements">Vêtements</option>
+                                <option value="Factures">Factures</option>
+                                <option value="Autre dépense">Autre dépense</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-description">Description</label>
+                        <input type="text" id="edit-description">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-date">Date</label>
+                        <input type="date" id="edit-date" required>
+                    </div>
+                    <div class="form-buttons">
+                        <button type="submit" class="btn btn-primary">Enregistrer</button>
+                        <button type="button" id="delete-btn" class="btn btn-danger">Supprimer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
