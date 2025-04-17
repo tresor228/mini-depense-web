@@ -1,5 +1,5 @@
 // Configuration de l'API
-const API_URL = 'http://localhost:8080';
+const API_URL = 'https://web-service-a3zr.onrender.com';
 
 // État de l'application
 let state = {
