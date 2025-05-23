@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -12,9 +11,8 @@ import (
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/gorilla/mux"
-
+	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -52,11 +50,6 @@ type JWTClaim struct {
 	jwt.StandardClaims
 }
 
-// Clé de contexte pour l'ID utilisateur
-type contextKey string
-
-const userIDKey contextKey = "userID"
-
 var db *sql.DB
 var jwtKey = []byte("votre_clé_secrète") // À changer en production
 
@@ -86,12 +79,12 @@ func main() {
 			w.Header().Set("Access-Control-Allow-Origin", "*")
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
+			
 			if r.Method == "OPTIONS" {
 				w.WriteHeader(http.StatusOK)
 				return
 			}
-
+			
 			h.ServeHTTP(w, r)
 		})
 	}
@@ -101,19 +94,41 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-
+	
 	fmt.Printf("Serveur démarré sur le port %s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, corsHandler(router)))
 }
 
 func initDB() {
 	var err error
-	// ⚠️ Mets à jour ce DSN si nécessaire
-	dsn := "root:012006@tcp(localhost:3306)/gestion_depense?parseTime=true"
-
-	db, err = sql.Open("mysql", dsn)
+	db, err = sql.Open("sqlite3", "./expense_tracker.db")
 	if err != nil {
-		log.Fatal("Erreur de connexion à MySQL :", err)
+		log.Fatal(err)
+	}
+
+	// Création des tables
+	createTablesSQL := `
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		username TEXT UNIQUE NOT NULL,
+		password TEXT NOT NULL
+	);
+	
+	CREATE TABLE IF NOT EXISTS transactions (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER,
+		amount REAL NOT NULL,
+		type TEXT NOT NULL,
+		category TEXT NOT NULL,
+		description TEXT,
+		date TEXT NOT NULL,
+		FOREIGN KEY (user_id) REFERENCES users (id)
+	);
+	`
+
+	_, err = db.Exec(createTablesSQL)
+	if err != nil {
+		log.Fatal(err)
 	}
 }
 
@@ -142,9 +157,9 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		}
 
 		// Ajouter l'ID utilisateur au contexte de la requête
-		ctx := context.WithValue(r.Context(), userIDKey, claims.UserID)
+		ctx := r.Context()
 		r = r.WithContext(ctx)
-
+		
 		// Continuer vers le handler
 		next.ServeHTTP(w, r)
 	})
@@ -184,7 +199,6 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 	// Insertion de l'utilisateur
 	stmt, err := db.Prepare("INSERT INTO users (username, password) VALUES (?, ?)")
 	if err != nil {
-		log.Println("Erreur SQL :", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -254,20 +268,33 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func getUserIDFromContext(r *http.Request) (int, bool) {
-	userID, ok := r.Context().Value(userIDKey).(int)
-	return userID, ok
+func getUserIDFromToken(r *http.Request) (int, error) {
+	tokenString := r.Header.Get("Authorization")
+	if len(tokenString) > 7 && tokenString[:7] == "Bearer " {
+		tokenString = tokenString[7:]
+	}
+
+	claims := &JWTClaim{}
+	_, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		return jwtKey, nil
+	})
+
+	if err != nil {
+		return 0, err
+	}
+
+	return claims.UserID, nil
 }
 
 func createTransactionHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserIDFromContext(r)
-	if !ok {
+	userID, err := getUserIDFromToken(r)
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
 	var transaction Transaction
-	err := json.NewDecoder(r.Body).Decode(&transaction)
+	err = json.NewDecoder(r.Body).Decode(&transaction)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -298,8 +325,8 @@ func createTransactionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getTransactionsHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserIDFromContext(r)
-	if !ok {
+	userID, err := getUserIDFromToken(r)
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -353,8 +380,8 @@ func getTransactionsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateTransactionHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserIDFromContext(r)
-	if !ok {
+	userID, err := getUserIDFromToken(r)
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -403,8 +430,8 @@ func updateTransactionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteTransactionHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserIDFromContext(r)
-	if !ok {
+	userID, err := getUserIDFromToken(r)
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -435,8 +462,8 @@ func deleteTransactionHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getSummaryHandler(w http.ResponseWriter, r *http.Request) {
-	userID, ok := getUserIDFromContext(r)
-	if !ok {
+	userID, err := getUserIDFromToken(r)
+	if err != nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -448,7 +475,7 @@ func getSummaryHandler(w http.ResponseWriter, r *http.Request) {
 	// Construction des requêtes pour les revenus et dépenses
 	incomeQuery := "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = ? AND type = 'income'"
 	expenseQuery := "SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE user_id = ? AND type = 'expense'"
-
+	
 	argsIncome := []interface{}{userID}
 	argsExpense := []interface{}{userID}
 
@@ -469,7 +496,7 @@ func getSummaryHandler(w http.ResponseWriter, r *http.Request) {
 	var totalIncome float64
 	var totalExpense float64
 
-	err := db.QueryRow(incomeQuery, argsIncome...).Scan(&totalIncome)
+	err = db.QueryRow(incomeQuery, argsIncome...).Scan(&totalIncome)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
