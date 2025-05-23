@@ -1,14 +1,19 @@
 // Configuration de l'API
-const API_URL = 'https://web-service-a3zr.onrender.com';
+const API_URL = 'http://localhost:8080';
 
 // État de l'application
 let state = {
     transactions: [],
-    token: localStorage.getItem('token') || null,
+    token: null,
     expenseCategories: ['Alimentation', 'Logement', 'Transport', 'Loisirs', 'Santé', 'Éducation', 'Vêtements', 'Factures', 'Autre dépense'],
     incomeCategories: ['Salaire', 'Freelance', 'Cadeaux', 'Investissements', 'Autre revenu'],
     chart: null
 };
+
+// Initialiser le token depuis localStorage si disponible
+if (typeof localStorage !== 'undefined') {
+    state.token = localStorage.getItem('token') || null;
+}
 
 // Fonctions d'initialisation
 function init() {
@@ -16,29 +21,59 @@ function init() {
     checkAuth();
     
     // Définir la date du jour pour les champs de date
-    document.getElementById('transaction-date').valueAsDate = new Date();
+    const transactionDateField = document.getElementById('transaction-date');
+    if (transactionDateField) {
+        transactionDateField.valueAsDate = new Date();
+    }
 }
 
 function setupEventListeners() {
     // Formulaires d'authentification
-    document.getElementById('login-form-elem').addEventListener('submit', handleLogin);
-    document.getElementById('register-form-elem').addEventListener('submit', handleRegister);
+    const loginForm = document.getElementById('login-form-elem');
+    const registerForm = document.getElementById('register-form-elem');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', handleLogin);
+    }
+    if (registerForm) {
+        registerForm.addEventListener('submit', handleRegister);
+    }
     
     // Déconnexion
-    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) {
+        logoutBtn.addEventListener('click', handleLogout);
+    }
     
     // Formulaire de transaction
-    document.getElementById('transaction-form').addEventListener('submit', handleAddTransaction);
+    const transactionForm = document.getElementById('transaction-form');
+    if (transactionForm) {
+        transactionForm.addEventListener('submit', handleAddTransaction);
+    }
     
     // Filtres
-    document.getElementById('apply-filters').addEventListener('click', fetchTransactions);
+    const applyFiltersBtn = document.getElementById('apply-filters');
+    if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener('click', fetchTransactions);
+    }
     
     // Édition de transaction
-    document.getElementById('edit-form').addEventListener('submit', handleUpdateTransaction);
-    document.getElementById('delete-btn').addEventListener('click', handleDeleteTransaction);
+    const editForm = document.getElementById('edit-form');
+    const deleteBtn = document.getElementById('delete-btn');
+    
+    if (editForm) {
+        editForm.addEventListener('submit', handleUpdateTransaction);
+    }
+    if (deleteBtn) {
+        deleteBtn.addEventListener('click', handleDeleteTransaction);
+    }
     
     // Fermeture de la modal
-    document.querySelector('.close-btn').addEventListener('click', closeModal);
+    const closeBtn = document.querySelector('.close-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeModal);
+    }
+    
     window.addEventListener('click', (e) => {
         if (e.target.classList.contains('modal')) {
             closeModal();
@@ -56,13 +91,27 @@ function checkAuth() {
 
 // Fonctions d'affichage
 function showLoginPage() {
-    document.getElementById('login-page').classList.remove('hidden');
-    document.getElementById('dashboard-page').classList.add('hidden');
+    const loginPage = document.getElementById('login-page');
+    const dashboardPage = document.getElementById('dashboard-page');
+    
+    if (loginPage) {
+        loginPage.classList.remove('hidden');
+    }
+    if (dashboardPage) {
+        dashboardPage.classList.add('hidden');
+    }
 }
 
 function showDashboard() {
-    document.getElementById('login-page').classList.add('hidden');
-    document.getElementById('dashboard-page').classList.remove('hidden');
+    const loginPage = document.getElementById('login-page');
+    const dashboardPage = document.getElementById('dashboard-page');
+    
+    if (loginPage) {
+        loginPage.classList.add('hidden');
+    }
+    if (dashboardPage) {
+        dashboardPage.classList.remove('hidden');
+    }
     
     // Charger les données du dashboard
     fetchTransactions();
@@ -82,13 +131,17 @@ function showTab(tabId) {
     });
     
     // Afficher le formulaire sélectionné
-    document.getElementById(tabId).classList.remove('hidden');
+    const targetForm = document.getElementById(tabId);
+    if (targetForm) {
+        targetForm.classList.remove('hidden');
+    }
     
     // Activer le bouton d'onglet correspondant
-    if (tabId === 'login-form') {
-        document.querySelectorAll('.tab-btn')[0].classList.add('active');
-    } else {
-        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    if (tabId === 'login-form' && tabBtns[0]) {
+        tabBtns[0].classList.add('active');
+    } else if (tabBtns[1]) {
+        tabBtns[1].classList.add('active');
     }
 }
 
@@ -116,7 +169,9 @@ async function apiRequest(endpoint, method = 'GET', data = null) {
         
         if (response.status === 401) {
             // Token expiré ou invalide
-            localStorage.removeItem('token');
+            if (typeof localStorage !== 'undefined') {
+                localStorage.removeItem('token');
+            }
             state.token = null;
             showLoginPage();
             throw new Error('Session expirée. Veuillez vous reconnecter.');
@@ -143,33 +198,63 @@ async function apiRequest(endpoint, method = 'GET', data = null) {
 async function handleLogin(e) {
     e.preventDefault();
     
-    const username = document.getElementById('login-username').value;
-    const password = document.getElementById('login-password').value;
+    const usernameField = document.getElementById('login-username');
+    const passwordField = document.getElementById('login-password');
+    const errorElement = document.getElementById('login-error');
+    const formElement = document.getElementById('login-form-elem');
+    
+    if (!usernameField || !passwordField) {
+        return;
+    }
+    
+    const username = usernameField.value;
+    const password = passwordField.value;
     
     try {
         const response = await apiRequest('/login', 'POST', { username, password });
         
         if (response && response.token) {
-            localStorage.setItem('token', response.token);
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('token', response.token);
+            }
             state.token = response.token;
-            document.getElementById('login-error').textContent = '';
-            document.getElementById('login-form-elem').reset();
+            
+            if (errorElement) {
+                errorElement.textContent = '';
+            }
+            if (formElement) {
+                formElement.reset();
+            }
             showDashboard();
         }
     } catch (error) {
-        document.getElementById('login-error').textContent = 'Nom d\'utilisateur ou mot de passe incorrect';
+        if (errorElement) {
+            errorElement.textContent = 'Nom d\'utilisateur ou mot de passe incorrect';
+        }
     }
 }
 
 async function handleRegister(e) {
     e.preventDefault();
     
-    const username = document.getElementById('register-username').value;
-    const password = document.getElementById('register-password').value;
-    const confirmPassword = document.getElementById('register-confirm-password').value;
+    const usernameField = document.getElementById('register-username');
+    const passwordField = document.getElementById('register-password');
+    const confirmPasswordField = document.getElementById('register-confirm-password');
+    const errorElement = document.getElementById('register-error');
+    const formElement = document.getElementById('register-form-elem');
+    
+    if (!usernameField || !passwordField || !confirmPasswordField) {
+        return;
+    }
+    
+    const username = usernameField.value;
+    const password = passwordField.value;
+    const confirmPassword = confirmPasswordField.value;
     
     if (password !== confirmPassword) {
-        document.getElementById('register-error').textContent = 'Les mots de passe ne correspondent pas';
+        if (errorElement) {
+            errorElement.textContent = 'Les mots de passe ne correspondent pas';
+        }
         return;
     }
     
@@ -177,19 +262,30 @@ async function handleRegister(e) {
         const response = await apiRequest('/register', 'POST', { username, password });
         
         if (response && response.token) {
-            localStorage.setItem('token', response.token);
+            if (typeof localStorage !== 'undefined') {
+                localStorage.setItem('token', response.token);
+            }
             state.token = response.token;
-            document.getElementById('register-error').textContent = '';
-            document.getElementById('register-form-elem').reset();
+            
+            if (errorElement) {
+                errorElement.textContent = '';
+            }
+            if (formElement) {
+                formElement.reset();
+            }
             showDashboard();
         }
     } catch (error) {
-        document.getElementById('register-error').textContent = 'Cet utilisateur existe déjà ou une erreur est survenue';
+        if (errorElement) {
+            errorElement.textContent = 'Cet utilisateur existe déjà ou une erreur est survenue';
+        }
     }
 }
 
 function handleLogout() {
-    localStorage.removeItem('token');
+    if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('token');
+    }
     state.token = null;
     showLoginPage();
 }
@@ -198,9 +294,13 @@ function handleLogout() {
 async function fetchTransactions() {
     try {
         // Récupérer les filtres
-        const category = document.getElementById('filter-category').value;
-        const startDate = document.getElementById('filter-start-date').value;
-        const endDate = document.getElementById('filter-end-date').value;
+        const categoryField = document.getElementById('filter-category');
+        const startDateField = document.getElementById('filter-start-date');
+        const endDateField = document.getElementById('filter-end-date');
+        
+        const category = categoryField ? categoryField.value : '';
+        const startDate = startDateField ? startDateField.value : '';
+        const endDate = endDateField ? endDateField.value : '';
         
         // Construire l'URL avec les filtres
         let url = '/transactions';
@@ -251,11 +351,22 @@ async function fetchSummary(startDate = '', endDate = '') {
 async function handleAddTransaction(e) {
     e.preventDefault();
     
-    const amount = parseFloat(document.getElementById('transaction-amount').value);
-    const type = document.querySelector('input[name="transaction-type"]:checked').value;
-    const category = document.getElementById('transaction-category').value;
-    const description = document.getElementById('transaction-description').value;
-    const date = document.getElementById('transaction-date').value;
+    const amountField = document.getElementById('transaction-amount');
+    const typeField = document.querySelector('input[name="transaction-type"]:checked');
+    const categoryField = document.getElementById('transaction-category');
+    const descriptionField = document.getElementById('transaction-description');
+    const dateField = document.getElementById('transaction-date');
+    const formElement = document.getElementById('transaction-form');
+    
+    if (!amountField || !typeField || !categoryField || !dateField) {
+        return;
+    }
+    
+    const amount = parseFloat(amountField.value);
+    const type = typeField.value;
+    const category = categoryField.value;
+    const description = descriptionField ? descriptionField.value : '';
+    const date = dateField.value;
     
     try {
         await apiRequest('/transactions', 'POST', {
@@ -267,8 +378,12 @@ async function handleAddTransaction(e) {
         });
         
         // Réinitialiser le formulaire
-        document.getElementById('transaction-form').reset();
-        document.getElementById('transaction-date').valueAsDate = new Date();
+        if (formElement) {
+            formElement.reset();
+        }
+        if (dateField) {
+            dateField.valueAsDate = new Date();
+        }
         
         // Actualiser les données
         fetchTransactions();
@@ -282,12 +397,23 @@ async function handleAddTransaction(e) {
 async function handleUpdateTransaction(e) {
     e.preventDefault();
     
-    const id = document.getElementById('edit-id').value;
-    const amount = parseFloat(document.getElementById('edit-amount').value);
-    const type = document.querySelector('input[name="edit-type"]:checked').value;
-    const category = document.getElementById('edit-category').value;
-    const description = document.getElementById('edit-description').value;
-    const date = document.getElementById('edit-date').value;
+    const idField = document.getElementById('edit-id');
+    const amountField = document.getElementById('edit-amount');
+    const typeField = document.querySelector('input[name="edit-type"]:checked');
+    const categoryField = document.getElementById('edit-category');
+    const descriptionField = document.getElementById('edit-description');
+    const dateField = document.getElementById('edit-date');
+    
+    if (!idField || !amountField || !typeField || !categoryField || !dateField) {
+        return;
+    }
+    
+    const id = idField.value;
+    const amount = parseFloat(amountField.value);
+    const type = typeField.value;
+    const category = categoryField.value;
+    const description = descriptionField ? descriptionField.value : '';
+    const date = dateField.value;
     
     try {
         await apiRequest(`/transactions/${id}`, 'PUT', {
@@ -310,7 +436,13 @@ async function handleUpdateTransaction(e) {
 }
 
 async function handleDeleteTransaction() {
-    const id = document.getElementById('edit-id').value;
+    const idField = document.getElementById('edit-id');
+    
+    if (!idField) {
+        return;
+    }
+    
+    const id = idField.value;
     
     if (confirm('Êtes-vous sûr de vouloir supprimer cette transaction ?')) {
         try {
@@ -331,6 +463,10 @@ async function handleDeleteTransaction() {
 // Fonctions de rendu
 function renderTransactions() {
     const container = document.getElementById('transactions-container');
+    
+    if (!container) {
+        return;
+    }
     
     if (state.transactions.length === 0) {
         container.innerHTML = '<p class="empty-message">Aucune transaction à afficher</p>';
@@ -372,18 +508,31 @@ function renderTransactions() {
 }
 
 function renderSummary(summary) {
-    document.getElementById('total-income').textContent = formatCurrency(summary.total_income);
-    document.getElementById('total-expense').textContent = formatCurrency(summary.total_expense);
+    if (!summary) {
+        return;
+    }
     
+    const totalIncomeElement = document.getElementById('total-income');
+    const totalExpenseElement = document.getElementById('total-expense');
     const balanceElement = document.getElementById('balance');
-    balanceElement.textContent = formatCurrency(summary.balance);
     
-    // Ajouter une classe en fonction du solde
-    balanceElement.className = 'amount';
-    if (summary.balance > 0) {
-        balanceElement.classList.add('income');
-    } else if (summary.balance < 0) {
-        balanceElement.classList.add('expense');
+    if (totalIncomeElement) {
+        totalIncomeElement.textContent = formatCurrency(summary.total_income);
+    }
+    if (totalExpenseElement) {
+        totalExpenseElement.textContent = formatCurrency(summary.total_expense);
+    }
+    
+    if (balanceElement) {
+        balanceElement.textContent = formatCurrency(summary.balance);
+        
+        // Ajouter une classe en fonction du solde
+        balanceElement.className = 'amount';
+        if (summary.balance > 0) {
+            balanceElement.classList.add('income');
+        } else if (summary.balance < 0) {
+            balanceElement.classList.add('expense');
+        }
     }
 }
 
@@ -401,34 +550,55 @@ function formatDate(dateString) {
 }
 
 function openEditModal(transaction) {
+    const modal = document.getElementById('edit-modal');
+    
+    if (!modal) {
+        return;
+    }
+    
     // Remplir le formulaire avec les données de la transaction
-    document.getElementById('edit-id').value = transaction.id;
-    document.getElementById('edit-amount').value = transaction.amount;
-    document.getElementById('edit-category').value = transaction.category;
-    document.getElementById('edit-description').value = transaction.description || '';
-    document.getElementById('edit-date').value = transaction.date;
+    const idField = document.getElementById('edit-id');
+    const amountField = document.getElementById('edit-amount');
+    const categoryField = document.getElementById('edit-category');
+    const descriptionField = document.getElementById('edit-description');
+    const dateField = document.getElementById('edit-date');
+    
+    if (idField) idField.value = transaction.id;
+    if (amountField) amountField.value = transaction.amount;
+    if (categoryField) categoryField.value = transaction.category;
+    if (descriptionField) descriptionField.value = transaction.description || '';
+    if (dateField) dateField.value = transaction.date;
     
     // Sélectionner le type de transaction
     const incomeRadio = document.querySelector('input[name="edit-type"][value="income"]');
     const expenseRadio = document.querySelector('input[name="edit-type"][value="expense"]');
     
-    if (transaction.type === 'income') {
+    if (transaction.type === 'income' && incomeRadio) {
         incomeRadio.checked = true;
-    } else {
+    } else if (expenseRadio) {
         expenseRadio.checked = true;
     }
     
     // Afficher la modal
-    document.getElementById('edit-modal').style.display = 'block';
+    modal.style.display = 'block';
 }
 
 function closeModal() {
-    document.getElementById('edit-modal').style.display = 'none';
+    const modal = document.getElementById('edit-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
 }
 
 // Fonctions liées aux graphiques
 function initChart() {
-    const ctx = document.getElementById('expense-chart').getContext('2d');
+    const chartCanvas = document.getElementById('expense-chart');
+    
+    if (!chartCanvas || typeof Chart === 'undefined') {
+        return;
+    }
+    
+    const ctx = chartCanvas.getContext('2d');
     
     state.chart = new Chart(ctx, {
         type: 'doughnut',
@@ -469,6 +639,10 @@ function initChart() {
 }
 
 function updateChartData() {
+    if (!state.chart) {
+        return;
+    }
+    
     // Filtrer les transactions pour n'avoir que les dépenses
     const expenses = state.transactions.filter(t => t.type === 'expense');
     

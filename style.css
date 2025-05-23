@@ -380,3 +380,9 @@ header .container {
     justify-content: space-between;
     margin-top: 20px;
 }
+ footer {
+      background-color: var (--white-color);
+      color: var (--dark-color);
+      text-align: center;
+      padding: 15px;
+    }
